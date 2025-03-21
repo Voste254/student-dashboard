@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Signup</title>    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  align-items: center;
+  height: 100%;
+  padding:0px;
+  justify-content: center; 
+ 
+ 
+}
+@media screen and (max-width: 768px) {
+  .dashboard-container {
+      flex-direction: column;
+  }}
+  header {
+    background-color:  #009688;
+    text-align: center;
+    color: white;
+    padding: 15px;
+    margin-bottom: 20px;
+    width: 100%;
+    height: 40px;
+    align-items: center;
+  } 
+  h1{
+  
+   margin-top: 20px;
+  } 
+h2{
+  font-size: 24px;
+  text-align: center;
+  color:black;
+  animation: puls 1.5s infinite;
+}   
+.container{
+  width:500px;
+  height: 500px;
+  margin:auto;
+  padding:20px;
+  border-radius: 10px;
+  box-shadow:0 0  10px rgba(0,0,0.358);
+  backdrop-filter:blur(10px);
+  background: rgba(255,255,255,0.207);
+  display: flexbox;
+  justify-content: center;
+  align-items: center;
+  vertical-align: top;
+  margin-bottom: 20px;
+  margin-bottom: 60px;
+  
+}
+
+
+
+
+label{
+  display:block;
+  margin-bottom: 5px; 
+  margin-left: 50px; 
+}
+input,textarea{
+  width:80%;
+  margin-left: 30px;
+  padding:10px;
+  margin-bottom: 10px;
+  border:1px solid#092408;
+  border-radius: 5px;
+  background-color: rgba(255,255,255,0);
+}
+button{
+  padding:10px 20px;
+  background-color: #009688;
+  color:#fff;
+  border:none;
+  border-radius: 5px;
+  cursor:pointer;
+  margin-left: 180px;
+}
+button:hover{
+  background-color: #092408;
+}
+.link{
+  margin-left: 140px;
+}
+
+
+footer {
+  background-color: #222;
+  color: #fff;
+  text-align: center;
+  padding: 10px 0;
+  position: fixed;
+  width: 100%;
+  bottom: 0;
+  left: 0;
+  font-size: 14px;
+  height:30px;
+}
+
+/*@media (max-width: 768px) {
+  .container {
+    width: 80%; /* Make it more fluid */
+     /* Let content decide height 
+    padding: 15px;
+  }
+}
+
+/* For mobile screens (screen width up to 480px) 
+@media (max-width: 480px) {
+  .container {
+    width: 90%;
+    height: auto;
+    padding: 10px;
+    border-radius: 5px; /* Smaller border-radius for smaller screens 
+  }
+}*/
+    </style>
+</head>
+<body>
+    <header>
+        <h1>USER SIGNUP</h1>
+    </header>
+
+    <div class="container">
+        <h2>ACCOUNT CREATION</h2>
+        <form id="signupForm">
+            <label for="name">Full Name:</label>
+            <input type="text" id="name" name="full_name" required>
+
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+
+            <label for="contact">Contact:</label>
+            <input type="text" id="contact" name="contact" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" name="user_password" required>
+
+            <label for="confirm_password">Confirm Password:</label>
+            <input type="password" id="confirm_password" required>
+
+            <button type="submit">Submit</button>
+        </form>
+
+        <p class="link">
+            Already have an account? <a href="login.html">Log in</a>
+        </p>
+    </div>
+
+  <script>
+    document.getElementById("signupForm").addEventListener("submit", function(event) {
+      event.preventDefault();
+  
+      const full_name = document.getElementById("name").value;
+      const email = document.getElementById("email").value;
+      const contact = document.getElementById("contact").value;
+      const user_password = document.getElementById("password").value;
+      const confirmPassword = document.getElementById("confirm_password").value;
+  
+      if (user_password !== confirmPassword) {
+          alert("Passwords do not match!");
+          return;
+      }
+  
+      const formData = { full_name, email, contact, user_password };
+  
+      fetch("http://localhost:3000/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData)
+      })
+      .then(response => {
+          if (!response.ok) {
+              // If the response is not OK (e.g., 400 or 500 status), throw an error
+              return response.text().then(errorMessage => {
+                  throw new Error(errorMessage);
+              });
+          }
+          return response.text();
+      })
+      .then(data => {
+          alert(data); // Show success message
+          window.location.href = "dashboard.html"; // Redirect only on successful signup
+      })
+      .catch(error => {
+          alert(error.message); // Show error message
+          // Do not redirect if there's an error
+      });
+  });
+  </script>
+
+    <footer>
+        <p class="copyright">&copy; Copyright Super Readers 2025 <strong> All Rights Reserved</strong></p>p>
+    </footer>
+</body>
+</html>
