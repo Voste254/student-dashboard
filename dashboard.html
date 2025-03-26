@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Document</title>
+  <title>library</title>
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
@@ -12,7 +12,7 @@
     </div>
     <a href="#" onclick="showProfile()">My Profile</a>
     <a href="#" onclick="showSection('borrowmaterials')">Borrow books</a>
-    <a href="#" onclick="viewcart()">My Cart</a>
+    <a href="#" onclick="viewCart()">My Cart</a>
     <a href="#" onclick="showSection('payments')">Make Payments</a>    
     <a href="#" onclick="showSection('notifications')" >Notifications</a>
     <a href="#">Return Books</a>
@@ -28,7 +28,7 @@
   <div class="mainbody">
     <div class="navbar">
       
-     <button onclick="redirectToLogin()" type="button"><span></span>LOG OUT</button>
+     <button class="logout-btn" onclick="redirectToLogin()" type="button"><span></span>LOG OUT</button>
      <script>
       function redirectToLogin() {
           window.location.href = "library.html";
@@ -172,20 +172,23 @@
     fetch(`http://localhost:3000/books/${category}`)
         .then(response => response.json())
         .then(data => {
+          console.log("Books API response:", data);
             const categoryDiv = document.getElementById(category);
             categoryDiv.innerHTML = `<h3>${category.charAt(0).toUpperCase() + category.slice(1)} Books</h3>`;
 
             data.forEach(book => {
+                console.log("Book data received:", book); 
                 const bookElement = document.createElement("p");
                 bookElement.textContent = book.title;
 
                 const borrowButton = document.createElement("button");
                 borrowButton.textContent = "Borrow";
+                borrowButton.style.marginRight = "10px";
 
                 const cartButton = document.createElement("button");
                 cartButton.textContent = "Add to Cart";
                 cartButton.onclick = function() {
-    addToCart(book.id);
+    addToCart(book.book_id);
 };
 
 
@@ -210,6 +213,13 @@ function addToCart(bookId) {
       alert("Please log in first.");
       return;
   }
+  if (!bookId) {
+    console.error("Error: bookId is null or undefined"); 
+    alert("Error: Book ID is missing");
+    return;
+}
+
+console.log(`Adding to cart -> User ID: ${user_id}, Book ID: ${bookId}`);
 
   fetch("http://localhost:3000/cart/add", {
       method: "POST",
@@ -220,36 +230,60 @@ function addToCart(bookId) {
   .then(message => alert(message))
   .catch(error => console.error("Error adding to cart:", error));
 }
-function viewCart() {
-  const user_id = localStorage.getItem("user_id");
 
-  if (!user_id) {
-      alert("Please log in first.");
-      return;
+  function viewCart() {
+    const user_id = localStorage.getItem("user_id");
+  
+    if (!user_id) {
+        alert("Please log in first.");
+        return;
+    }
+  
+    fetch(`http://localhost:3000/cart/${user_id}`)
+    .then(response => response.json())
+    .then(data => {
+        let cartHTML = "<h2>Your Cart</h2>";
+  
+        if (data.length === 0) {
+            cartHTML += "<p>Your cart is empty.</p>";
+        } else {
+            data.forEach(book => {
+                cartHTML += `
+                    <p><strong>${book.title}</strong> - Quantity: ${book.quantity} 
+                    <button onclick="removeFromCart(${book.book_id})" style="margin-left: 10px; background-color: red; color: white; border: none; padding: 5px 10px; cursor: pointer;">
+                        Drop
+                    </button>
+                    </p>
+                `;
+            });
+  
+            cartHTML += `<button onclick="bookItems()">Book Now</button>`;
+        }
+  
+        document.getElementById("cart").innerHTML = cartHTML;
+        showSection("cart");
+    })
+    .catch(error => console.error("Error fetching cart:", error));
   }
-
-  fetch(`http://localhost:3000/cart/${user_id}`)
-  .then(response => response.json())
-  .then(data => {
-      let cartHTML = "<h2>Your Cart</h2>";
-
-      if (data.length === 0) {
-          cartHTML += "<p>Your cart is empty.</p>";
-      } else {
-          data.forEach(book => {
-              cartHTML += `
-                  <p><strong>${book.title}</strong> - Quantity: ${book.quantity}</p>
-              `;
-          });
-
-          cartHTML += `<button onclick="bookItems()">Book Now</button>`;
-      }
-
-      document.getElementById("cart").innerHTML = cartHTML;
-      showSection("cart");
-  })
-  .catch(error => console.error("Error fetching cart:", error));
-}
+  
+  // Remove book from cart function
+  function removeFromCart(bookId) {
+    const user_id = localStorage.getItem("user_id");
+  
+    fetch(`http://localhost:3000/cart/remove`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id, book_id: bookId })
+    })
+    .then(response => response.text())
+    .then(message => {
+        alert(message);
+        viewCart(); // Refresh the cart after removing an item
+    })
+    .catch(error => console.error("Error removing book from cart:", error));
+  }
+ 
+  
 function bookItems() {
   const user_id = localStorage.getItem("user_id");
 

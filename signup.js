@@ -2,6 +2,8 @@ const express = require("express");
 const mysql = require("mysql2");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const port =5500;
+require('dotenv').config()
 
 const app = express();
 app.use(cors());
@@ -9,10 +11,10 @@ app.use(bodyParser.json());
 
 // Connect to MySQL
 const db = mysql.createConnection({
-    host: "localhost",
-    user: "root",
-    password: "okutah6",
-    database: "library"
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
 });
 
 db.connect(err => {
@@ -24,6 +26,9 @@ db.connect(err => {
 });
 
 // SIGNUP ROUTE
+const bcrypt = require("bcrypt"); // Import bcrypt
+const saltRounds = 10; // Number of salt rounds for hashing
+
 app.post("/signup", (req, res) => {
     const { full_name, email, contact, user_password } = req.body;
 
@@ -31,28 +36,33 @@ app.post("/signup", (req, res) => {
         return res.status(400).send("All fields are required");
     }
 
-    // First, check if the email already exists
+    // Check if the email already exists
     const checkEmailSql = "SELECT * FROM accounts WHERE email = ?";
     db.query(checkEmailSql, [email], (err, result) => {
-        if (err) {
-            return res.status(500).send("Database error: " + err.message);
-        }
+        if (err) return res.status(500).send("Database error: " + err.message);
 
         if (result.length > 0) {
-            // If the email already exists, return an error
             return res.status(400).send("Email already exists");
         }
 
-        // If the email is unique, proceed with the insertion
-        const insertUserSql = "INSERT INTO accounts (full_name, email, contact, user_password) VALUES (?, ?, ?, ?)";
-        db.query(insertUserSql, [full_name, email, contact, user_password], (err, result) => {
-            if (err) {
-                return res.status(500).send("Database error: " + err.message);
-            }
-            res.send("User registered successfully!");
+        // Hash the password before storing
+        bcrypt.hash(user_password, saltRounds, (err, hashedPassword) => {
+            if (err) return res.status(500).send("Error hashing password");
+
+            const insertUserSql = "INSERT INTO accounts (full_name, email, contact, user_password) VALUES (?, ?, ?, ?)";
+            db.query(insertUserSql, [full_name, email, contact, hashedPassword], (err, result) => {
+                if (err) return res.status(500).send("Database error: " + err.message);
+                
+                res.send({
+                    message: "User registered successfully!",
+                    success: true,
+                    user_id: result.insertId  // Send the new user's ID
+                });
+            });
         });
     });
 });
+
 
 // LOGIN ROUTE
 app.post("/login", (req, res) => {
@@ -62,19 +72,27 @@ app.post("/login", (req, res) => {
         return res.status(400).send("All fields are required");
     }
 
-    const sql = "SELECT * FROM accounts WHERE email = ? AND user_password = ?";
-    db.query(sql, [email, password], (err, result) => {
-        if (err) {
-            console.error("Database error:", err);
-            return res.status(500).send("Internal Server Error");
+    const sql = "SELECT * FROM accounts WHERE email = ?";
+    db.query(sql, [email], (err, result) => {
+        if (err) return res.status(500).send("Internal Server Error");
+
+        if (result.length === 0) {
+            return res.status(401).send("Invalid email or password");
         }
-        if (result.length > 0) {
-            res.send({ message: "Login successful", success: true });
-        } else {
-            res.status(401).send({ message: "Invalid email or password", success: false });
-        }
+
+        const user = result[0];
+        bcrypt.compare(password, user.user_password, (err, isMatch) => {
+            if (err) return res.status(500).send("Error checking password");
+            
+            if (!isMatch) {
+                return res.status(401).send("Invalid email or password");
+            }
+
+            res.send({ message: "Login successful", success: true, user_id: user.user_id ,userEmail:email});
+        });
     });
 });
+
 // Route to fetch user profile data
 app.get("/profile/:email", (req, res) => {
     const email = req.params.email;
@@ -96,7 +114,7 @@ app.get("/profile/:email", (req, res) => {
 // Route to fetch books by category
 app.get("/books/:category", (req, res) => {
     const category = req.params.category;
-    const sql = "SELECT title FROM books WHERE category = ?";
+    const sql = " SELECT book_id,title FROM books WHERE category = ?";
     
     db.query(sql, [category], (err, result) => {
         if (err) {
@@ -109,6 +127,10 @@ app.get("/books/:category", (req, res) => {
 //ROUTE TO ADD BOOKS TO CART
 app.post("/cart/add", (req, res) => {
     const { user_id, book_id, quantity } = req.body;
+    if (!user_id || !book_id) {
+        console.error("Error: Missing user_id or book_id");
+        return res.status(400).send("Error: Missing user_id or book_id");
+    }
 
     const sql = "INSERT INTO books_cart (user_id, book_id, quantity) VALUES (?, ?, ?)";
     db.query(sql, [user_id, book_id, quantity || 1], (err, result) => {
@@ -161,8 +183,26 @@ app.post("/cart/book", (req, res) => {
                 return res.status(500).send("Error clearing cart");
             }
 
-            res.send("Booking successful! Cart cleared.");
+            res.send("Booking request sent for approval. we will notify you upon successful approval");
         });
+    });
+});
+//ROUTE TO DROP BOOK FROM CART
+app.post("/cart/remove", (req, res) => {
+    const { user_id, book_id } = req.body;
+
+    const sql = "DELETE FROM books_cart WHERE user_id = ? AND book_id = ?";
+    db.query(sql, [user_id, book_id], (err, result) => {
+        if (err) {
+            console.error("Database error:", err);
+            return res.status(500).send("Error removing book from cart");
+        }
+
+        if (result.affectedRows > 0) {
+            res.send("Book removed from cart successfully!");
+        } else {
+            res.status(404).send("Book not found in cart");
+        }
     });
 });
 
@@ -172,5 +212,5 @@ app.post("/cart/book", (req, res) => {
 
 // Start the server 
 app.listen(3000, () => {
-    console.log("Server running on port 3000");
+    console.log(`Server running at http://localhost:${port}/library.html`);
 });
